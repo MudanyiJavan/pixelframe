@@ -9,22 +9,30 @@ interface ProfileModalProps {
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     name: user?.name || '',
-    email: user?.email || '',
     phone: user?.phone || '',
     location: user?.location || ''
   });
 
   if (!isOpen || !user) return null;
 
-  const handleSave = () => {
-    // In a real app, this would update the user profile
-    console.log('Saving profile:', formData);
-    setIsEditing(false);
-    alert('Profile updated successfully!');
+  const handleSave = async () => {
+    setLoading(true);
+    setError('');
+    
+    try {
+      await updateProfile(formData);
+      setIsEditing(false);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -40,6 +48,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
         </div>
 
         <div className="p-6">
+          {error && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-700 text-sm">{error}</p>
+            </div>
+          )}
+
           {/* Profile Header */}
           <div className="flex items-center space-x-6 mb-8">
             <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
@@ -71,10 +85,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
               <h4 className="text-lg font-semibold text-gray-800">Personal Information</h4>
               <button
                 onClick={() => isEditing ? handleSave() : setIsEditing(true)}
-                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                disabled={loading}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
               >
                 {isEditing ? <Save className="h-4 w-4" /> : <Edit2 className="h-4 w-4" />}
-                <span>{isEditing ? 'Save Changes' : 'Edit Profile'}</span>
+                <span>{loading ? 'Saving...' : isEditing ? 'Save Changes' : 'Edit Profile'}</span>
               </button>
             </div>
 
@@ -150,13 +165,6 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
                 <h4 className="text-lg font-semibold text-orange-800 mb-4">Electrician Profile</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Rating</label>
-                    <div className="px-4 py-3 bg-white rounded-lg">
-                      <span className="text-2xl font-bold text-orange-600">{user.rating}</span>
-                      <span className="text-gray-600 ml-2">({user.reviewCount} reviews)</span>
-                    </div>
-                  </div>
-                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Verification Status</label>
                     <div className="px-4 py-3 bg-white rounded-lg">
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
@@ -166,30 +174,34 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
                       </span>
                     </div>
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Account Type</label>
+                    <div className="px-4 py-3 bg-white rounded-lg">
+                      <span className="text-orange-600 font-semibold">Professional Electrician</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
 
             {user.role === 'seller' && (
               <div className="mt-8 p-6 bg-blue-50 border border-blue-200 rounded-xl">
-                <h4 className="text-lg font-semibold text-blue-800 mb-4">Seller Statistics</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <h4 className="text-lg font-semibold text-blue-800 mb-4">Seller Profile</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Products Listed</label>
-                    <div className="px-4 py-3 bg-white rounded-lg text-2xl font-bold text-blue-600">
-                      {mockProducts.filter(p => p.sellerId === user.id).length}
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Verification Status</label>
+                    <div className="px-4 py-3 bg-white rounded-lg">
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        user.verified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {user.verified ? '✓ Verified Seller' : '⏳ Pending Verification'}
+                      </span>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Total Sales</label>
-                    <div className="px-4 py-3 bg-white rounded-lg text-2xl font-bold text-green-600">
-                      {mockProducts.filter(p => p.sellerId === user.id).reduce((sum, p) => sum + p.sold, 0)}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Shop Rating</label>
-                    <div className="px-4 py-3 bg-white rounded-lg text-2xl font-bold text-orange-600">
-                      4.7
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Shop Status</label>
+                    <div className="px-4 py-3 bg-white rounded-lg">
+                      <span className="text-blue-600 font-semibold">Active Shop</span>
                     </div>
                   </div>
                 </div>

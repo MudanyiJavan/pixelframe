@@ -1,12 +1,36 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User } from '../types';
+import { supabase } from '../lib/supabase';
+import { User as SupabaseUser } from '@supabase/supabase-js';
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: 'customer' | 'seller' | 'electrician';
+  phone?: string;
+  location?: string;
+  verified?: boolean;
+  avatar_url?: string;
+}
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string, role?: string) => Promise<void>;
-  register: (userData: Partial<User>, password: string) => Promise<void>;
-  logout: () => void;
   loading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  register: (userData: {
+    name: string;
+    email: string;
+    password: string;
+    phone?: string;
+    location?: string;
+    role: 'customer' | 'seller' | 'electrician';
+    experience?: number;
+    specialties?: string[];
+    baseRate?: number;
+    onSiteRate?: number;
+  }) => Promise<void>;
+  logout: () => Promise<void>;
+  updateProfile: (updates: Partial<User>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,58 +45,174 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('pixelframe_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        fetchUserProfile(session.user);
+      } else {
+        setLoading(false);
+      }
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        await fetchUserProfile(session.user);
+      } else {
+        setUser(null);
+        setLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const login = async (email: string, password: string, role?: string) => {
+  const fetchUserProfile = async (supabaseUser: SupabaseUser) => {
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', supabaseUser.id)
+        .single();
+
+      if (error) throw error;
+
+      if (profile) {
+        setUser({
+          id: profile.id,
+          name: profile.name,
+          email: supabaseUser.email!,
+          role: profile.role,
+          phone: profile.phone,
+          location: profile.location,
+          verified: profile.verified,
+          avatar_url: profile.avatar_url
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const login = async (email: string, password: string) => {
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      const mockUser: User = {
-        id: Math.random().toString(36).substr(2, 9),
-        name: email.split('@')[0],
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
         email,
-        role: (role as any) || 'customer',
-        verified: role === 'electrician' ? true : false,
-        rating: role === 'electrician' ? 4.8 : undefined,
-        reviewCount: role === 'electrician' ? 127 : undefined
-      };
-      setUser(mockUser);
-      localStorage.setItem('pixelframe_user', JSON.stringify(mockUser));
+        password
+      });
+      if (error) throw error;
+    } catch (error: any) {
       setLoading(false);
-    }, 1000);
+      throw new Error(error.message || 'Login failed');
+    }
   };
 
-  const register = async (userData: Partial<User>, password: string) => {
+  const register = async (userData: {
+    name: string;
+    email: string;
+    password: string;
+    phone?: string;
+    location?: string;
+    role: 'customer' | 'seller' | 'electrician';
+    experience?: number;
+    specialties?: string[];
+    baseRate?: number;
+    onSiteRate?: number;
+  }) => {
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      const newUser: User = {
-        id: Math.random().toString(36).substr(2, 9),
-        ...userData,
-        verified: userData.role === 'electrician' ? false : true, // Electricians need verification
-        rating: userData.role === 'electrician' ? 0 : undefined,
-        reviewCount: userData.role === 'electrician' ? 0 : undefined
-      } as User;
-      setUser(newUser);
-      localStorage.setItem('pixelframe_user', JSON.stringify(newUser));
+    try {
+      // Sign up user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: userData.email,
+        password: userData.password,
+        options: {
+          data: {
+            name: userData.name,
+            role: userData.role
+          }
+        }
+      });
+
+      if (authError) throw authError;
+      if (!authData.user) throw new Error('User creation failed');
+
+      // Create profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: authData.user.id,
+          name: userData.name,
+          phone: userData.phone,
+          location: userData.location,
+          role: userData.role,
+          verified: userData.role === 'customer' // Auto-verify customers
+        });
+
+      if (profileError) throw profileError;
+
+      // If electrician, create electrician profile
+      if (userData.role === 'electrician' && userData.experience && userData.baseRate && userData.onSiteRate) {
+        const { error: electricianError } = await supabase
+          .from('electricians')
+          .insert({
+            id: authData.user.id,
+            experience_years: userData.experience,
+            specialties: userData.specialties || [],
+            base_rate: userData.baseRate,
+            onsite_rate: userData.onSiteRate,
+            service_areas: userData.location ? [userData.location] : []
+          });
+
+        if (electricianError) throw electricianError;
+      }
+
+    } catch (error: any) {
       setLoading(false);
-    }, 1500);
+      throw new Error(error.message || 'Registration failed');
+    }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('pixelframe_user');
+  const logout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+  };
+
+  const updateProfile = async (updates: Partial<User>) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          name: updates.name,
+          phone: updates.phone,
+          location: updates.location
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      setUser({ ...user, ...updates });
+    } catch (error: any) {
+      throw new Error(error.message || 'Profile update failed');
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      loading, 
+      login, 
+      register, 
+      logout, 
+      updateProfile 
+    }}>
       {children}
     </AuthContext.Provider>
   );

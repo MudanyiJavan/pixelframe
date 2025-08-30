@@ -1,65 +1,19 @@
 import React, { useState } from 'react';
 import { X, Package, Clock, CheckCircle, XCircle, Eye } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useOrders } from '../hooks/useOrders';
 
 interface OrdersModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-interface Order {
-  id: string;
-  productName: string;
-  productImage: string;
-  price: number;
-  quantity: number;
-  status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
-  orderDate: string;
-  estimatedDelivery?: string;
-  seller: string;
-}
-
 export const OrdersModal: React.FC<OrdersModalProps> = ({ isOpen, onClose }) => {
   const { user } = useAuth();
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const { orders, loading } = useOrders();
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
 
   if (!isOpen || !user) return null;
-
-  // Mock orders data
-  const mockOrders: Order[] = [
-    {
-      id: 'ORD-2025-001',
-      productName: 'Samsung Galaxy S24 Ultra',
-      productImage: 'https://images.pexels.com/photos/699122/pexels-photo-699122.jpeg',
-      price: 120000,
-      quantity: 1,
-      status: 'shipped',
-      orderDate: '2025-01-10',
-      estimatedDelivery: '2025-01-17',
-      seller: 'TechHub Kenya'
-    },
-    {
-      id: 'ORD-2025-002',
-      productName: 'Sony WH-1000XM5 Headphones',
-      productImage: 'https://images.pexels.com/photos/3394650/pexels-photo-3394650.jpeg',
-      price: 28000,
-      quantity: 1,
-      status: 'delivered',
-      orderDate: '2025-01-05',
-      seller: 'Audio World'
-    },
-    {
-      id: 'ORD-2025-003',
-      productName: 'Dell XPS 13 Core i7',
-      productImage: 'https://images.pexels.com/photos/205421/pexels-photo-205421.jpeg',
-      price: 85000,
-      quantity: 1,
-      status: 'pending',
-      orderDate: '2025-01-14',
-      estimatedDelivery: '2025-01-21',
-      seller: 'Nairobi Electronics'
-    }
-  ];
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -83,6 +37,17 @@ export const OrdersModal: React.FC<OrdersModalProps> = ({ isOpen, onClose }) => 
     }
   };
 
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-2xl p-8 text-center">
+          <Package className="h-12 w-12 text-blue-600 mx-auto mb-4 animate-pulse" />
+          <p className="text-gray-600">Loading your orders...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -99,24 +64,24 @@ export const OrdersModal: React.FC<OrdersModalProps> = ({ isOpen, onClose }) => 
           {/* Orders Summary */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
             <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-xl text-center">
-              <div className="text-2xl font-bold text-blue-600">{mockOrders.length}</div>
+              <div className="text-2xl font-bold text-blue-600">{orders.length}</div>
               <div className="text-blue-700 text-sm">Total Orders</div>
             </div>
             <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-xl text-center">
               <div className="text-2xl font-bold text-green-600">
-                {mockOrders.filter(o => o.status === 'delivered').length}
+                {orders.filter(o => o.status === 'delivered').length}
               </div>
               <div className="text-green-700 text-sm">Delivered</div>
             </div>
             <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl text-center">
               <div className="text-2xl font-bold text-purple-600">
-                {mockOrders.filter(o => o.status === 'shipped').length}
+                {orders.filter(o => o.status === 'shipped').length}
               </div>
               <div className="text-purple-700 text-sm">In Transit</div>
             </div>
             <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-xl text-center">
               <div className="text-2xl font-bold text-orange-600">
-                KES {mockOrders.reduce((sum, order) => sum + (order.price * order.quantity), 0).toLocaleString()}
+                KES {orders.reduce((sum, order) => sum + (order.price * order.quantity), 0).toLocaleString()}
               </div>
               <div className="text-orange-700 text-sm">Total Spent</div>
             </div>
@@ -124,7 +89,7 @@ export const OrdersModal: React.FC<OrdersModalProps> = ({ isOpen, onClose }) => 
 
           {/* Orders List */}
           <div className="space-y-4">
-            {mockOrders.map((order) => (
+            {orders.map((order) => (
               <div key={order.id} className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow">
                 <div className="flex items-start space-x-4">
                   <img
@@ -136,13 +101,13 @@ export const OrdersModal: React.FC<OrdersModalProps> = ({ isOpen, onClose }) => 
                     <div className="flex items-start justify-between">
                       <div>
                         <h4 className="font-semibold text-lg text-gray-800">{order.productName}</h4>
-                        <p className="text-gray-600 text-sm">Order #{order.id}</p>
+                        <p className="text-gray-600 text-sm">Order #{order.id.slice(0, 8)}</p>
                         <p className="text-gray-600 text-sm">Sold by {order.seller}</p>
                         <p className="text-gray-600 text-sm">Ordered on {new Date(order.orderDate).toLocaleDateString()}</p>
                       </div>
                       <div className="text-right">
                         <div className="text-xl font-bold text-gray-900 mb-2">
-                          KES {(order.price * order.quantity).toLocaleString()}
+                          KES {order.price.toLocaleString()}
                         </div>
                         <div className="flex items-center space-x-2">
                           {getStatusIcon(order.status)}
@@ -193,7 +158,7 @@ export const OrdersModal: React.FC<OrdersModalProps> = ({ isOpen, onClose }) => 
             ))}
           </div>
 
-          {mockOrders.length === 0 && (
+          {orders.length === 0 && (
             <div className="text-center py-12">
               <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-600 mb-2">No orders yet</h3>
@@ -223,10 +188,10 @@ export const OrdersModal: React.FC<OrdersModalProps> = ({ isOpen, onClose }) => 
                   />
                   <div>
                     <h4 className="font-semibold text-lg text-gray-800">{selectedOrder.productName}</h4>
-                    <p className="text-gray-600">Order #{selectedOrder.id}</p>
+                    <p className="text-gray-600">Order #{selectedOrder.id.slice(0, 8)}</p>
                     <p className="text-gray-600">Quantity: {selectedOrder.quantity}</p>
                     <p className="text-xl font-bold text-gray-900 mt-2">
-                      KES {(selectedOrder.price * selectedOrder.quantity).toLocaleString()}
+                      KES {selectedOrder.price.toLocaleString()}
                     </p>
                   </div>
                 </div>
@@ -248,6 +213,10 @@ export const OrdersModal: React.FC<OrdersModalProps> = ({ isOpen, onClose }) => 
                         {selectedOrder.status}
                       </span>
                     </div>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Delivery Address:</span>
+                    <span className="font-medium">{selectedOrder.deliveryAddress}</span>
                   </div>
                   {selectedOrder.estimatedDelivery && (
                     <div className="flex justify-between">

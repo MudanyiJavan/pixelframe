@@ -12,6 +12,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [userRole, setUserRole] = useState('customer');
+  const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -19,28 +20,56 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     phone: '',
     location: '',
     experience: '',
-    specialties: [] as string[]
+    specialties: [] as string[],
+    baseRate: '',
+    onSiteRate: ''
   });
 
   const { login, register, loading } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    
     try {
       if (isLogin) {
-        await login(formData.email, formData.password, userRole);
+        await login(formData.email, formData.password);
       } else {
-        await register({
+        const userData = {
           name: formData.name,
           email: formData.email,
+          password: formData.password,
           phone: formData.phone,
           location: formData.location,
-          role: userRole as any
-        }, formData.password);
+          role: userRole as 'customer' | 'seller' | 'electrician'
+        };
+
+        // Add electrician-specific data
+        if (userRole === 'electrician') {
+          Object.assign(userData, {
+            experience: parseInt(formData.experience),
+            specialties: formData.specialties,
+            baseRate: parseFloat(formData.baseRate),
+            onSiteRate: parseFloat(formData.onSiteRate)
+          });
+        }
+
+        await register(userData);
       }
       onClose();
-    } catch (error) {
-      console.error('Auth error:', error);
+      setFormData({
+        name: '',
+        email: '',
+        password: '',
+        phone: '',
+        location: '',
+        experience: '',
+        specialties: [],
+        baseRate: '',
+        onSiteRate: ''
+      });
+    } catch (err: any) {
+      setError(err.message);
     }
   };
 
@@ -72,28 +101,36 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         </div>
 
         <div className="p-6">
-          {/* Role Selection */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              I want to join as:
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {['customer', 'seller', 'electrician'].map((role) => (
-                <button
-                  key={role}
-                  type="button"
-                  onClick={() => setUserRole(role)}
-                  className={`p-3 rounded-lg border text-sm font-medium capitalize transition-all ${
-                    userRole === role
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
-                  }`}
-                >
-                  {role}
-                </button>
-              ))}
+          {error && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-700 text-sm">{error}</p>
             </div>
-          </div>
+          )}
+
+          {/* Role Selection */}
+          {!isLogin && (
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                I want to join as:
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {['customer', 'seller', 'electrician'].map((role) => (
+                  <button
+                    key={role}
+                    type="button"
+                    onClick={() => setUserRole(role)}
+                    className={`p-3 rounded-lg border text-sm font-medium capitalize transition-all ${
+                      userRole === role
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                    }`}
+                  >
+                    {role}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Electrician Verification Notice */}
           {userRole === 'electrician' && !isLogin && (
@@ -148,6 +185,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                   required
+                  minLength={6}
                 />
                 <button
                   type="button"
@@ -211,6 +249,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                       />
                     </div>
 
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Base Rate (KES)
+                        </label>
+                        <input
+                          type="number"
+                          value={formData.baseRate}
+                          onChange={(e) => setFormData({ ...formData, baseRate: e.target.value })}
+                          min="500"
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                          placeholder="2000"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          On-Site Rate (KES)
+                        </label>
+                        <input
+                          type="number"
+                          value={formData.onSiteRate}
+                          onChange={(e) => setFormData({ ...formData, onSiteRate: e.target.value })}
+                          min="1000"
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                          placeholder="3500"
+                          required
+                        />
+                      </div>
+                    </div>
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Specialties (Select at least 2)
@@ -240,6 +309,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                           </label>
                         ))}
                       </div>
+                      {userRole === 'electrician' && formData.specialties.length < 2 && (
+                        <p className="text-red-500 text-xs mt-1">Please select at least 2 specialties</p>
+                      )}
                     </div>
                   </>
                 )}
@@ -248,7 +320,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (userRole === 'electrician' && !isLogin && formData.specialties.length < 2)}
               className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Processing...' : isLogin ? 'Sign In' : 'Create Account'}
@@ -259,6 +331,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             <button
               onClick={() => {
                 setIsLogin(!isLogin);
+                setError('');
                 setFormData({
                   name: '',
                   email: '',
@@ -266,7 +339,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   phone: '',
                   location: '',
                   experience: '',
-                  specialties: []
+                  specialties: [],
+                  baseRate: '',
+                  onSiteRate: ''
                 });
               }}
               className="text-blue-600 hover:text-blue-700 font-medium"

@@ -11,11 +11,15 @@ import { ProfileModal } from './components/ProfileModal';
 import { OrdersModal } from './components/OrdersModal';
 import { SellerDashboard } from './components/SellerDashboard';
 import { CategoryFilter } from './components/CategoryFilter';
-import { mockProducts, mockServices, mockElectricians } from './data/mockData';
+import { useProducts } from './hooks/useProducts';
+import { useServices } from './hooks/useServices';
 import { Product, Service } from './types';
 
 const AppContent: React.FC = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { products, loading: productsLoading } = useProducts();
+  const { services, loading: servicesLoading } = useServices();
+  
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
@@ -29,23 +33,23 @@ const AppContent: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState('');
 
   const filteredProducts = useMemo(() => {
-    return mockProducts.filter(product => {
+    return products.filter(product => {
       const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           product.description.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = selectedCategory === '' || product.category === selectedCategory;
       return matchesSearch && matchesCategory;
     });
-  }, [searchQuery, selectedCategory]);
+  }, [products, searchQuery, selectedCategory]);
 
   const filteredServices = useMemo(() => {
-    return mockServices.filter(service => {
+    return services.filter(service => {
       const matchesSearch = service.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           service.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           service.electricianName.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = selectedCategory === '' || service.category === selectedCategory;
       return matchesSearch && matchesCategory;
     }).sort((a, b) => b.electricianRating - a.electricianRating); // Sort by rating
-  }, [searchQuery, selectedCategory]);
+  }, [services, searchQuery, selectedCategory]);
 
   const handleBookService = (service: Service) => {
     if (!user) {
@@ -73,6 +77,20 @@ const AppContent: React.FC = () => {
     setSelectedProduct(product);
     setShowProductModal(true);
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="bg-gradient-to-br from-orange-400 to-orange-600 p-4 rounded-xl mb-4 inline-block">
+            <Zap className="h-12 w-12 text-white animate-pulse" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Loading PixelFrame...</h2>
+          <p className="text-gray-600">Connecting to your electronics marketplace</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -179,49 +197,63 @@ const AppContent: React.FC = () => {
           </div>
         </div>
 
-        {/* Content Grid */}
-        {activeTab === 'products' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredProducts.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                onViewDetails={handleViewProduct}
-                onAddToCart={handleAddToCart}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {filteredServices.map((service) => (
-              <ServiceCard
-                key={service.id}
-                service={service}
-                onBookService={handleBookService}
-              />
-            ))}
+        {/* Loading States */}
+        {(productsLoading || servicesLoading) && (
+          <div className="text-center py-12">
+            <div className="bg-gradient-to-br from-orange-400 to-orange-600 p-4 rounded-xl mb-4 inline-block">
+              <Zap className="h-8 w-8 text-white animate-pulse" />
+            </div>
+            <p className="text-gray-600">Loading {activeTab}...</p>
           </div>
         )}
 
-        {/* Empty State */}
-        {((activeTab === 'products' && filteredProducts.length === 0) ||
-          (activeTab === 'services' && filteredServices.length === 0)) && (
-          <div className="text-center py-12">
-            <div className="text-gray-400 mb-4">
-              {activeTab === 'products' ? <Monitor className="h-16 w-16 mx-auto" /> : <Zap className="h-16 w-16 mx-auto" />}
-            </div>
-            <h3 className="text-xl font-semibold text-gray-600 mb-2">
-              No {activeTab} found
-            </h3>
-            <p className="text-gray-500">
-              Try adjusting your search or filter criteria
-            </p>
-          </div>
+        {/* Content Grid */}
+        {!productsLoading && !servicesLoading && (
+          <>
+            {activeTab === 'products' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    onViewDetails={handleViewProduct}
+                    onAddToCart={handleAddToCart}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {filteredServices.map((service) => (
+                  <ServiceCard
+                    key={service.id}
+                    service={service}
+                    onBookService={handleBookService}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Empty State */}
+            {((activeTab === 'products' && filteredProducts.length === 0) ||
+              (activeTab === 'services' && filteredServices.length === 0)) && (
+              <div className="text-center py-12">
+                <div className="text-gray-400 mb-4">
+                  {activeTab === 'products' ? <Monitor className="h-16 w-16 mx-auto" /> : <Zap className="h-16 w-16 mx-auto" />}
+                </div>
+                <h3 className="text-xl font-semibold text-gray-600 mb-2">
+                  No {activeTab} found
+                </h3>
+                <p className="text-gray-500">
+                  Try adjusting your search or filter criteria
+                </p>
+              </div>
+            )}
+          </>
         )}
       </div>
 
       {/* Top Electricians Section */}
-      {activeTab === 'services' && (
+      {activeTab === 'services' && !servicesLoading && (
         <section className="bg-white py-12 mt-8">
           <div className="container mx-auto px-4">
             <div className="flex items-center justify-center space-x-2 mb-8">
@@ -229,22 +261,21 @@ const AppContent: React.FC = () => {
               <h2 className="text-3xl font-bold text-gray-900">Top Rated Electricians</h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {mockElectricians.slice(0, 3).map((electrician) => (
-                <div key={electrician.id} className="bg-gradient-to-br from-blue-50 to-orange-50 rounded-xl p-6 text-center">
+              {filteredServices.slice(0, 3).map((service) => (
+                <div key={service.id} className="bg-gradient-to-br from-blue-50 to-orange-50 rounded-xl p-6 text-center">
                   <img
-                    src={electrician.avatar}
-                    alt={electrician.name}
+                    src={service.electricianImage}
+                    alt={service.electricianName}
                     className="w-20 h-20 rounded-full object-cover mx-auto mb-4"
                   />
-                  <h3 className="font-semibold text-lg text-gray-800">{electrician.name}</h3>
+                  <h3 className="font-semibold text-lg text-gray-800">{service.electricianName}</h3>
                   <div className="flex items-center justify-center space-x-1 mb-2">
                     <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                    <span className="font-semibold">{electrician.rating}</span>
-                    <span className="text-gray-600">({electrician.reviewCount} reviews)</span>
+                    <span className="font-semibold">{service.electricianRating}</span>
                   </div>
-                  <p className="text-sm text-gray-600 mb-3">{electrician.experience} years experience</p>
+                  <p className="text-sm text-gray-600 mb-3">{service.category}</p>
                   <div className="text-xs text-gray-500">
-                    {electrician.specialties.slice(0, 2).join(', ')}
+                    From KES {service.basePrice.toLocaleString()}
                   </div>
                 </div>
               ))}

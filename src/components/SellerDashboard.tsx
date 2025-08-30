@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Package, Plus, Edit, Trash2, Eye, TrendingUp, DollarSign, Users } from 'lucide-react';
-import { Product } from '../types';
-import { mockProducts } from '../data/mockData';
+import { X, Package, Plus, Edit, Trash2, TrendingUp, DollarSign, Users } from 'lucide-react';
+import { useProducts } from '../hooks/useProducts';
+import { ELECTRONICS_CATEGORIES } from '../types';
 
 interface SellerDashboardProps {
   isOpen: boolean;
@@ -12,12 +12,71 @@ interface SellerDashboardProps {
 export const SellerDashboard: React.FC<SellerDashboardProps> = ({ isOpen, sellerId, onClose }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'orders'>('overview');
   const [showAddProduct, setShowAddProduct] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   
-  // Mock seller products (in real app, filter by sellerId)
-  const sellerProducts = mockProducts.filter(p => p.sellerId === sellerId);
+  const { products, addProduct, updateProduct, deleteProduct } = useProducts();
+  
+  // Filter products by seller
+  const sellerProducts = products.filter(p => p.sellerId === sellerId);
   
   const totalRevenue = sellerProducts.reduce((sum, product) => sum + (product.price * product.sold), 0);
   const totalSold = sellerProducts.reduce((sum, product) => sum + product.sold, 0);
+
+  const [productForm, setProductForm] = useState({
+    name: '',
+    description: '',
+    price: '',
+    category: '',
+    brand: '',
+    stock: '',
+    specifications: {} as Record<string, string>
+  });
+
+  const handleAddProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      await addProduct({
+        name: productForm.name,
+        description: productForm.description,
+        price: parseFloat(productForm.price),
+        category: productForm.category,
+        brand: productForm.brand,
+        stock: parseInt(productForm.stock),
+        specifications: productForm.specifications,
+        images: ['https://images.pexels.com/photos/699122/pexels-photo-699122.jpeg'] // Default image
+      });
+
+      setShowAddProduct(false);
+      setProductForm({
+        name: '',
+        description: '',
+        price: '',
+        category: '',
+        brand: '',
+        stock: '',
+        specifications: {}
+      });
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteProduct = async (productId: string) => {
+    if (confirm('Are you sure you want to delete this product?')) {
+      try {
+        await deleteProduct(productId);
+      } catch (err: any) {
+        setError(err.message);
+      }
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -30,7 +89,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({ isOpen, seller
             <div className="flex items-center justify-between mb-8">
               <h2 className="text-xl font-bold text-gray-900">My Shop</h2>
               <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-                ×
+                <X className="h-6 w-6" />
               </button>
             </div>
             
@@ -51,7 +110,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({ isOpen, seller
                 }`}
               >
                 <Package className="inline h-4 w-4 mr-2" />
-                My Products
+                My Products ({sellerProducts.length})
               </button>
               <button
                 onClick={() => setActiveTab('orders')}
@@ -67,6 +126,12 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({ isOpen, seller
 
           {/* Main Content */}
           <div className="flex-1 overflow-y-auto">
+            {error && (
+              <div className="m-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-700 text-sm">{error}</p>
+              </div>
+            )}
+
             {activeTab === 'overview' && (
               <div className="p-8">
                 <h3 className="text-2xl font-bold text-gray-900 mb-6">Shop Overview</h3>
@@ -99,15 +164,15 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({ isOpen, seller
                         <p className="text-orange-100">Active Products</p>
                         <p className="text-2xl font-bold">{sellerProducts.filter(p => p.inStock).length}</p>
                       </div>
-                      <Eye className="h-8 w-8 text-orange-200" />
+                      <Package className="h-8 w-8 text-orange-200" />
                     </div>
                   </div>
                   
                   <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-xl">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-purple-100">Avg Rating</p>
-                        <p className="text-2xl font-bold">4.7</p>
+                        <p className="text-purple-100">Total Products</p>
+                        <p className="text-2xl font-bold">{sellerProducts.length}</p>
                       </div>
                       <TrendingUp className="h-8 w-8 text-purple-200" />
                     </div>
@@ -116,20 +181,20 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({ isOpen, seller
 
                 {/* Recent Activity */}
                 <div className="bg-white rounded-xl shadow-lg p-6">
-                  <h4 className="font-semibold text-lg text-gray-800 mb-4">Recent Activity</h4>
+                  <h4 className="font-semibold text-lg text-gray-800 mb-4">Your Products</h4>
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                      <span className="text-green-800">Samsung Galaxy S24 Ultra sold</span>
-                      <span className="text-green-600 font-semibold">+KES 120,000</span>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                      <span className="text-blue-800">Dell XPS 13 viewed 15 times</span>
-                      <span className="text-blue-600">Today</span>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
-                      <span className="text-orange-800">LG TV stock running low (5 left)</span>
-                      <span className="text-orange-600">Warning</span>
-                    </div>
+                    {sellerProducts.slice(0, 5).map((product) => (
+                      <div key={product.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <img src={product.images[0]} alt={product.name} className="w-12 h-12 object-cover rounded-lg" />
+                          <div>
+                            <span className="font-medium text-gray-800">{product.name}</span>
+                            <div className="text-sm text-gray-600">Stock: {product.stock} | Sold: {product.sold}</div>
+                          </div>
+                        </div>
+                        <span className="text-blue-600 font-semibold">KES {product.price.toLocaleString()}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -158,7 +223,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({ isOpen, seller
                       />
                       <div className="flex-1">
                         <h4 className="font-semibold text-lg text-gray-800">{product.name}</h4>
-                        <p className="text-gray-600 text-sm">{product.category}</p>
+                        <p className="text-gray-600 text-sm">{product.category} • {product.brand}</p>
                         <div className="flex items-center space-x-4 mt-2">
                           <span className="text-lg font-bold text-gray-900">
                             KES {product.price.toLocaleString()}
@@ -172,91 +237,156 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({ isOpen, seller
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg">
+                        <button 
+                          onClick={() => setEditingProduct(product)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                        >
                           <Edit className="h-5 w-5" />
                         </button>
-                        <button className="p-2 text-red-600 hover:bg-red-50 rounded-lg">
+                        <button 
+                          onClick={() => handleDeleteProduct(product.id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                        >
                           <Trash2 className="h-5 w-5" />
                         </button>
                       </div>
                     </div>
                   ))}
                 </div>
+
+                {sellerProducts.length === 0 && (
+                  <div className="text-center py-12">
+                    <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                    <h4 className="text-xl font-semibold text-gray-600 mb-2">No products yet</h4>
+                    <p className="text-gray-500 mb-4">Start by adding your first product to your shop</p>
+                    <button
+                      onClick={() => setShowAddProduct(true)}
+                      className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all font-semibold"
+                    >
+                      Add Your First Product
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
             {activeTab === 'orders' && (
               <div className="p-8">
-                <h3 className="text-2xl font-bold text-gray-900 mb-6">Recent Orders</h3>
+                <h3 className="text-2xl font-bold text-gray-900 mb-6">Customer Orders</h3>
                 
-                <div className="space-y-4">
-                  {[
-                    { id: 'ORD001', product: 'Samsung Galaxy S24 Ultra', customer: 'John Doe', amount: 120000, status: 'completed', date: '2025-01-15' },
-                    { id: 'ORD002', product: 'Dell XPS 13', customer: 'Jane Smith', amount: 85000, status: 'pending', date: '2025-01-14' },
-                    { id: 'ORD003', product: 'LG 55" Smart TV', customer: 'Mike Johnson', amount: 65000, status: 'shipped', date: '2025-01-13' }
-                  ].map((order) => (
-                    <div key={order.id} className="bg-white rounded-xl shadow-lg p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-semibold text-lg text-gray-800">Order #{order.id}</h4>
-                          <p className="text-gray-600">{order.product}</p>
-                          <p className="text-sm text-gray-500">Customer: {order.customer}</p>
-                          <p className="text-sm text-gray-500">Date: {order.date}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xl font-bold text-gray-900">KES {order.amount.toLocaleString()}</p>
-                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                            order.status === 'completed' ? 'bg-green-100 text-green-800' :
-                            order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-blue-100 text-blue-800'
-                          }`}>
-                            {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                <div className="text-center py-12">
+                  <Users className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <h4 className="text-xl font-semibold text-gray-600 mb-2">No orders yet</h4>
+                  <p className="text-gray-500">Orders from customers will appear here</p>
                 </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Add Product Modal */}
-        {showAddProduct && (
+        {/* Add/Edit Product Modal */}
+        {(showAddProduct || editingProduct) && (
           <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold text-gray-900">Add New Product</h3>
-                  <button onClick={() => setShowAddProduct(false)} className="text-gray-400 hover:text-gray-600">
-                    ×
+                  <h3 className="text-xl font-bold text-gray-900">
+                    {editingProduct ? 'Edit Product' : 'Add New Product'}
+                  </h3>
+                  <button 
+                    onClick={() => {
+                      setShowAddProduct(false);
+                      setEditingProduct(null);
+                      setError('');
+                    }} 
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="h-5 w-5" />
                   </button>
                 </div>
               </div>
               <div className="p-6">
-                <form className="space-y-4">
+                <form onSubmit={handleAddProduct} className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Product Name</label>
-                    <input type="text" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+                    <input 
+                      type="text" 
+                      value={productForm.name}
+                      onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" 
+                      required
+                    />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Price (KES)</label>
-                    <input type="number" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                      <select
+                        value={productForm.category}
+                        onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        required
+                      >
+                        <option value="">Select category</option>
+                        {ELECTRONICS_CATEGORIES.map((category) => (
+                          <option key={category} value={category}>{category}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Brand</label>
+                      <input 
+                        type="text" 
+                        value={productForm.brand}
+                        onChange={(e) => setProductForm({ ...productForm, brand: e.target.value })}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" 
+                        required
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Stock Quantity</label>
-                    <input type="number" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Price (KES)</label>
+                      <input 
+                        type="number" 
+                        value={productForm.price}
+                        onChange={(e) => setProductForm({ ...productForm, price: e.target.value })}
+                        min="1"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" 
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Stock Quantity</label>
+                      <input 
+                        type="number" 
+                        value={productForm.stock}
+                        onChange={(e) => setProductForm({ ...productForm, stock: e.target.value })}
+                        min="0"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" 
+                        required
+                      />
+                    </div>
                   </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                    <textarea rows={4} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"></textarea>
+                    <textarea 
+                      rows={4} 
+                      value={productForm.description}
+                      onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                      required
+                    />
                   </div>
+
                   <button
                     type="submit"
-                    className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all font-semibold"
+                    disabled={loading}
+                    className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all font-semibold disabled:opacity-50"
                   >
-                    Add Product
+                    {loading ? 'Adding Product...' : 'Add Product'}
                   </button>
                 </form>
               </div>
