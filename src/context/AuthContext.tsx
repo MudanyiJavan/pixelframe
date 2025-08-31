@@ -77,6 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const fetchUserProfile = async (supabaseUser: SupabaseUser) => {
+    setLoading(true);
     try {
       if (!supabase) return;
       
@@ -86,7 +87,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('id', supabaseUser.id)
         .single();
 
-      if (error && error.code !== 'PGRST116') throw error;
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching user profile:', error);
+        setLoading(false);
+        return;
+      }
 
       if (profile && !error) {
         setUser({
@@ -111,6 +116,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
+      // Even if there's an error, we should still show the app
+      setUser({
+        id: supabaseUser.id,
+        name: supabaseUser.email?.split('@')[0] || 'User',
+        email: supabaseUser.email!,
+        role: 'customer',
+        verified: false
+      });
     } finally {
       setLoading(false);
     }
