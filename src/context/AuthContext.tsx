@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface User {
@@ -48,6 +48,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // If Supabase is not configured, set loading to false
+    if (!isSupabaseConfigured || !supabase) {
+      setLoading(false);
+      return;
+    }
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
@@ -72,6 +78,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchUserProfile = async (supabaseUser: SupabaseUser) => {
     try {
+      if (!supabase) return;
+      
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -102,6 +110,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
+      if (!supabase) throw new Error('Database not configured');
+      
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -127,6 +137,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }) => {
     setLoading(true);
     try {
+      if (!supabase) throw new Error('Database not configured');
+      
       // Sign up user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: userData.email,
@@ -179,12 +191,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
+    if (!supabase) return;
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   };
 
   const updateProfile = async (updates: Partial<User>) => {
     if (!user) return;
+    if (!supabase) throw new Error('Database not configured');
 
     try {
       const { error } = await supabase

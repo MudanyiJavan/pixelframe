@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 interface Order {
   id: string;
@@ -22,6 +22,14 @@ export const useOrders = () => {
   const fetchOrders = async () => {
     try {
       setLoading(true);
+      
+      // Return empty array if Supabase is not configured
+      if (!isSupabaseConfigured || !supabase) {
+        setOrders([]);
+        setLoading(false);
+        return;
+      }
+      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -71,6 +79,8 @@ export const useOrders = () => {
     deliveryAddress: string;
   }) => {
     try {
+      if (!supabase) throw new Error('Database not configured');
+      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 

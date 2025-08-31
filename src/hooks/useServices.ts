@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Service } from '../types';
+import { mockServices } from '../data/mockData';
 
 export const useServices = () => {
   const [services, setServices] = useState<Service[]>([]);
@@ -10,6 +11,14 @@ export const useServices = () => {
   const fetchServices = async () => {
     try {
       setLoading(true);
+      
+      // Use mock data if Supabase is not configured
+      if (!isSupabaseConfigured || !supabase) {
+        setServices(mockServices);
+        setLoading(false);
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('services')
         .select(`
@@ -60,6 +69,8 @@ export const useServices = () => {
     notes?: string;
   }) => {
     try {
+      if (!supabase) throw new Error('Database not configured');
+      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 

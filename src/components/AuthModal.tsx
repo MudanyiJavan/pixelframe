@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Eye, EyeOff, Zap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { isSupabaseConfigured } from '../lib/supabase';
 import { KENYA_LOCATIONS } from '../types';
 
 interface AuthModalProps {
@@ -101,6 +102,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         </div>
 
         <div className="p-6">
+          {!isSupabaseConfigured && (
+            <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-yellow-700 text-sm">
+                ⚠️ Demo Mode: Database not configured. Authentication is disabled for demonstration purposes.
+              </p>
+            </div>
+          )}
+          
           {error && (
             <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-red-700 text-sm">{error}</p>
@@ -320,10 +329,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
             <button
               type="submit"
-              disabled={loading || (userRole === 'electrician' && !isLogin && formData.specialties.length < 2)}
+              disabled={!isSupabaseConfigured || loading || (userRole === 'electrician' && !isLogin && formData.specialties.length < 2)}
               className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Processing...' : isLogin ? 'Sign In' : 'Create Account'}
+              {!isSupabaseConfigured ? 'Demo Mode - Auth Disabled' : loading ? 'Processing...' : isLogin ? 'Sign In' : 'Create Account'}
             </button>
           </form>
 

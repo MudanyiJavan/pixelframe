@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Product } from '../types';
+import { mockProducts } from '../data/mockData';
 
 export const useProducts = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -10,6 +11,14 @@ export const useProducts = () => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
+      
+      // Use mock data if Supabase is not configured
+      if (!isSupabaseConfigured || !supabase) {
+        setProducts(mockProducts);
+        setLoading(false);
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('products')
         .select(`
@@ -60,6 +69,8 @@ export const useProducts = () => {
     images?: string[];
   }) => {
     try {
+      if (!supabase) throw new Error('Database not configured');
+      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
@@ -79,6 +90,8 @@ export const useProducts = () => {
 
   const updateProduct = async (productId: string, updates: Partial<Product>) => {
     try {
+      if (!supabase) throw new Error('Database not configured');
+      
       const { error } = await supabase
         .from('products')
         .update({
@@ -102,6 +115,8 @@ export const useProducts = () => {
 
   const deleteProduct = async (productId: string) => {
     try {
+      if (!supabase) throw new Error('Database not configured');
+      
       const { error } = await supabase
         .from('products')
         .delete()
