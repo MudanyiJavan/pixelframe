@@ -86,9 +86,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('id', supabaseUser.id)
         .single();
 
-      if (error) throw error;
+      if (error && error.code !== 'PGRST116') throw error;
 
-      if (profile) {
+      if (profile && !error) {
         setUser({
           id: profile.id,
           name: profile.name,
@@ -98,6 +98,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           location: profile.location,
           verified: profile.verified,
           avatar_url: profile.avatar_url
+        });
+      } else {
+        // No profile found, create a minimal user object
+        setUser({
+          id: supabaseUser.id,
+          name: supabaseUser.email?.split('@')[0] || 'User',
+          email: supabaseUser.email!,
+          role: 'customer',
+          verified: false
         });
       }
     } catch (error) {
