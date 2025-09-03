@@ -48,52 +48,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // If Supabase is not configured, set loading to false
-    if (!isSupabaseConfigured || !supabase) {
-      setLoading(false);
-      return;
-    }
-
-    // Get initial session
     const initializeAuth = async () => {
+      setLoading(true);
+      
+      // If Supabase is not configured, just set loading to false
+      if (!isSupabaseConfigured || !supabase) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) {
-          console.error('Session error:', error);
-          setLoading(false);
-          return;
-        }
+        const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.user) {
           await fetchUserProfile(session.user);
-        } else {
-          setLoading(false);
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
+      } finally {
         setLoading(false);
       }
     };
 
     initializeAuth();
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      try {
-        if (session?.user) {
-          await fetchUserProfile(session.user);
-        } else {
+    // Only set up auth listener if Supabase is configured
+    if (isSupabaseConfigured && supabase) {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        try {
+          if (session?.user) {
+            await fetchUserProfile(session.user);
+          } else {
+            setUser(null);
+          }
+        } catch (error) {
+          console.error('Auth state change error:', error);
           setUser(null);
-          setLoading(false);
         }
-      } catch (error) {
-        console.error('Auth state change error:', error);
-        setUser(null);
-        setLoading(false);
-      }
-    });
+      });
 
-    return () => subscription.unsubscribe();
+      return () => subscription.unsubscribe();
+    }
   }, []);
 
   const fetchUserProfile = async (supabaseUser: SupabaseUser) => {
@@ -102,10 +97,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('*')
-        .eq('id', supabaseUser.id)
-        .maybeSingle();
-
       if (profile) {
         setUser({
           id: profile.id,
@@ -118,7 +109,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           avatar_url: profile.avatar_url
         });
       } else {
-        // No profile found or error occurred, create a minimal user object
+        // No profile found, create a minimal user object
         setUser({
           id: supabaseUser.id,
           name: supabaseUser.email?.split('@')[0] || 'User',
@@ -129,7 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
-      // Create a fallback user object
+      // Create a fallback user object on error
       setUser({
         id: supabaseUser.id,
         name: supabaseUser.email?.split('@')[0] || 'User',
@@ -137,8 +128,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: 'customer',
         verified: false
       });
-    } finally {
-      setLoading(false);
     }
   };
 
