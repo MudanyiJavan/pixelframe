@@ -86,7 +86,7 @@ const AppContent: React.FC = () => {
             <Zap className="h-12 w-12 text-white animate-pulse" />
           </div>
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Loading PixelFrame...</h2>
-          <p className="text-gray-600">Connecting to your electronics marketplace</p>
+          <p>&copy; 2025 PixelFrame Kenya. All rights reserved.</p>
         </div>
       </div>
     );
