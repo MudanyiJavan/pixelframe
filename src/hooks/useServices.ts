@@ -35,38 +35,32 @@ export const useServices = () => {
               )
             )
           `)
-          .eq('active', true);
+          .eq('active', true)
+          .order('created_at', { ascending: false });
 
         if (error) throw error;
-        setServices(data || []);
+
+        const formattedServices: Service[] = data.map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          description: item.description,
+          category: item.category,
+          basePrice: item.base_price,
+          onSitePrice: item.onsite_price,
+          electricianId: item.electrician_id,
+          electricianName: item.electricians?.profiles?.name || 'Unknown Electrician',
+          electricianRating: item.electricians?.rating || 0,
+          electricianImage: item.electricians?.profiles?.avatar_url || 'https://images.pexels.com/photos/1516680/pexels-photo-1516680.jpeg',
+          duration: item.duration,
+          availability: ['Mon-Fri: 8AM-6PM', 'Sat: 9AM-4PM'] // TODO: Get from electrician profile
+        }));
+
+        setServices(formattedServices);
       } catch (fetchError) {
         // If fetch fails, fall back to mock data
         console.warn('Supabase fetch failed, using mock data:', fetchError);
         setServices(mockServices);
       }
-          )
-        `)
-        .eq('active', true)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      const formattedServices: Service[] = data.map((item: any) => ({
-        id: item.id,
-        name: item.name,
-        description: item.description,
-        category: item.category,
-        basePrice: item.base_price,
-        onSitePrice: item.onsite_price,
-        electricianId: item.electrician_id,
-        electricianName: item.electricians?.profiles?.name || 'Unknown Electrician',
-        electricianRating: item.electricians?.rating || 0,
-        electricianImage: item.electricians?.profiles?.avatar_url || 'https://images.pexels.com/photos/1516680/pexels-photo-1516680.jpeg',
-        duration: item.duration,
-        availability: ['Mon-Fri: 8AM-6PM', 'Sat: 9AM-4PM'] // TODO: Get from electrician profile
-      }));
-
-      setServices(formattedServices);
     } catch (err: any) {
       console.warn('Error fetching services, using mock data:', error);
       setServices(mockServices);
