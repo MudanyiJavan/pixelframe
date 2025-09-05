@@ -30,7 +30,9 @@ export const useProducts = () => {
               location,
               verified
             )
-          `);
+          `)
+          .gt('stock', 0) // Only show products in stock
+          .order('created_at', { ascending: false });
 
         if (error) throw error;
         setProducts(data || []);
@@ -39,13 +41,6 @@ export const useProducts = () => {
         console.warn('Supabase fetch failed, using mock data:', fetchError);
         setProducts(mockProducts);
       }
-            name
-          )
-        `)
-        .gt('stock', 0) // Only show products in stock
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
 
       const formattedProducts: Product[] = data.map((item: any) => ({
         id: item.id,
