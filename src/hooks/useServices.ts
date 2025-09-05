@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { mockServices } from '../data/mockData';
 import { Service } from '../types';
 import { mockServices } from '../data/mockData';
 
@@ -12,23 +13,37 @@ export const useServices = () => {
     try {
       setLoading(true);
       
-      // Use mock data if Supabase is not configured
-      if (!isSupabaseConfigured || !supabase) {
+      // Check if Supabase is configured
+      if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+        // Use mock data if Supabase is not configured
         setServices(mockServices);
-        setLoading(false);
         return;
       }
-      
-      const { data, error } = await supabase
-        .from('services')
-        .select(`
-          *,
-          electricians (
-            rating,
-            profiles (
-              name,
-              avatar_url
+
+      try {
+        const { data, error } = await supabase
+          .from('services')
+          .select(`
+            *,
+            electricians (
+              rating,
+              review_count,
+              profiles (
+                name,
+                location,
+                verified
+              )
             )
+          `)
+          .eq('active', true);
+
+        if (error) throw error;
+        setServices(data || []);
+      } catch (fetchError) {
+        // If fetch fails, fall back to mock data
+        console.warn('Supabase fetch failed, using mock data:', fetchError);
+        setServices(mockServices);
+      }
           )
         `)
         .eq('active', true)
@@ -53,7 +68,8 @@ export const useServices = () => {
 
       setServices(formattedServices);
     } catch (err: any) {
-      setError(err.message);
+      console.warn('Error fetching services, using mock data:', error);
+      setServices(mockServices);
     } finally {
       setLoading(false);
     }

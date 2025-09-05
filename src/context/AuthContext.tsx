@@ -58,13 +58,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       try {
+        // Check if Supabase is configured
+        if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+          console.warn('Supabase not configured, running in demo mode');
+          setLoading(false);
+          return;
+        }
+
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.user) {
           await fetchUserProfile(session.user);
         }
       } catch (error) {
-        console.error('Auth initialization error:', error);
+        console.warn('Error initializing auth, running in demo mode:', error);
       } finally {
         setLoading(false);
       }

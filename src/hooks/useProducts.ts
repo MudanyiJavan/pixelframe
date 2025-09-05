@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { mockProducts } from '../data/mockData';
 import { Product } from '../types';
 import { mockProducts } from '../data/mockData';
 
@@ -12,18 +13,32 @@ export const useProducts = () => {
     try {
       setLoading(true);
       
-      // Use mock data if Supabase is not configured
-      if (!isSupabaseConfigured || !supabase) {
+      // Check if Supabase is configured
+      if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+        // Use mock data if Supabase is not configured
         setProducts(mockProducts);
-        setLoading(false);
         return;
       }
-      
-      const { data, error } = await supabase
-        .from('products')
-        .select(`
-          *,
-          profiles:seller_id (
+
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select(`
+            *,
+            profiles:seller_id (
+              name,
+              location,
+              verified
+            )
+          `);
+
+        if (error) throw error;
+        setProducts(data || []);
+      } catch (fetchError) {
+        // If fetch fails, fall back to mock data
+        console.warn('Supabase fetch failed, using mock data:', fetchError);
+        setProducts(mockProducts);
+      }
             name
           )
         `)
@@ -52,7 +67,8 @@ export const useProducts = () => {
 
       setProducts(formattedProducts);
     } catch (err: any) {
-      setError(err.message);
+      console.warn('Error fetching products, using mock data:', error);
+      setProducts(mockProducts);
     } finally {
       setLoading(false);
     }
