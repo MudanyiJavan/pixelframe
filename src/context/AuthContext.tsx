@@ -150,6 +150,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) throw error;
     } catch (error: any) {
       setLoading(false);
+      // Don't log invalid credentials errors as they're expected user errors
+      if (error.message !== 'Invalid login credentials') {
+        console.error('Login error:', error);
+      }
       throw new Error(error.message || 'Login failed');
     }
   };
