@@ -70,7 +70,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         onSiteRate: ''
       });
     } catch (err: any) {
-      setError(err.message);
+      if (err.message === 'Invalid login credentials') {
+        setError('The email or password you entered is incorrect. Please double-check your details or try signing up if you don\'t have an account.');
+      } else {
+        setError(err.message);
+      }
     }
   };
 
